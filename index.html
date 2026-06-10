@@ -129,6 +129,7 @@ footer .copy{font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12
 .toast.show{display:block;opacity:1}
 @keyframes newOrderPulse{0%{box-shadow:0 0 0 0 rgba(176,26,26,.7)}70%{box-shadow:0 0 0 18px rgba(176,26,26,0)}100%{box-shadow:0 0 0 0 rgba(176,26,26,0)}}
 .new-order-badge{position:fixed;top:1.2rem;right:1.2rem;background:var(--rosso);color:#fff;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:.7rem 1.4rem;z-index:999;animation:newOrderPulse 1.2s infinite;cursor:pointer;display:none}
+.blocco-btn{padding:.45rem 1.1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;font-weight:700;border:none;transition:all .2s}
 .admin-wrap{min-height:100vh;display:grid;grid-template-columns:220px 1fr}
 .admin-side{background-color:var(--nero);border-right:2px solid var(--rosso);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:.4rem}
 .admin-logo{font-family:'Playfair Display',serif;font-size:1.3rem;color:#f08080;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid rgba(176,26,26,.3)}
@@ -514,13 +515,13 @@ function getPeriodoKey(){
   const day=d.getDay(); // 0=dom 1=lun 2=mar 3=mer 4=gio 5=ven 6=sab
   // Trova l'ultimo giorno di ritiro (mar o ven) passato o oggi
   let ref=new Date(d);
-  if(day===0) ref.setDate(d.getDate()-1); // dom → ven scorso
-  else if(day===1) ref.setDate(d.getDate()-2); // lun → ven scorso
-  else if(day===2) ref.setDate(d.getDate()); // mar → oggi
-  else if(day===3) ref.setDate(d.getDate()-1); // mer → mar scorso
-  else if(day===4) ref.setDate(d.getDate()-2); // gio → mar scorso
-  else if(day===5) ref.setDate(d.getDate()); // ven → oggi
-  else if(day===6) ref.setDate(d.getDate()-1); // sab → ven scorso
+  if(day===0) ref.setDate(d.getDate()-1); // dom -> ven scorso
+  else if(day===1) ref.setDate(d.getDate()-2); // lun -> ven scorso
+  else if(day===2) ref.setDate(d.getDate()); // mar -> oggi
+  else if(day===3) ref.setDate(d.getDate()-1); // mer -> mar scorso
+  else if(day===4) ref.setDate(d.getDate()-2); // gio -> mar scorso
+  else if(day===5) ref.setDate(d.getDate()); // ven -> oggi
+  else if(day===6) ref.setDate(d.getDate()-1); // sab -> ven scorso
   return ref.toISOString().split("T")[0];
 }
 function getSushiDisponibili(type){
@@ -768,6 +769,7 @@ function renderAdminTab(){
   if(adminTab==="orders")renderOrders(main);
   if(adminTab==="settings")renderSettings(main);
   if(adminTab==="account")renderAccount(main);
+  setTimeout(updateBloccoBtn,0);
 }
 
 let showHiddenOrders=false;
@@ -824,7 +826,7 @@ function renderOrders(el){
     <div class="admin-title">Ordini ricevuti</div>
     <div class="admin-sub">— gestisci e conferma le prenotazioni —</div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem">
-      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap"><div class="filter-tabs" style="margin-bottom:0">${filt.map((f,i)=>`<button class="filter-tab${orderFilter===f?" sel":""}" onclick="setOrderFilter('${f}')">${filtL[i]}</button>`).join("")}</div><button onclick="toggleOrdersBlock()" style="background:${ordersBlocked?"rgba(176,26,26,.12)":"rgba(42,102,68,.08)"};border:1px solid ${ordersBlocked?"rgba(176,26,26,.5)":"rgba(42,102,68,.4)"};color:${ordersBlocked?"var(--rosso)":"#2a7a4a"};padding:.45rem 1.1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;font-weight:700">${ordersBlocked?"🔴 Ordini BLOCCATI":"🟢 Ordini aperti"}</button></div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap"><div class="filter-tabs" style="margin-bottom:0">${filt.map((f,i)=>`<button class="filter-tab${orderFilter===f?" sel":""}" onclick="setOrderFilter('${f}')">${filtL[i]}</button>`).join("")}</div><button onclick="toggleOrdersBlock()" class="blocco-btn" id="blocco-btn">${ordersBlocked?"🔴 Ordini BLOCCATI":"🟢 Ordini aperti"}</button></div>
       ${visible.length>0?`<button onclick="clearAllCompleted()" style="background:none;border:1px solid rgba(176,26,26,.25);color:rgba(176,26,26,.6);padding:.45rem 1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer" title="Nascondi tutti i ritirati e annullati">🗂 Archivia evasi</button>`:""}
     </div>
     ${filtered.length===0
@@ -870,159 +872,36 @@ function deleteOrder(id){
   renderAdminTab();
 }
 function setOrderFilter(f){orderFilter=f;renderAdminTab()}
-function printOrder(id){const o=orders.find(x=>x.id===id);if(!o)return;const items=o.items.map(i=>{let s="- "+i.name+" (EUR "+i.price+")";if(i.isPoke&&i.detail)s+="
-"+i.detail.split("|").map(l=>"  > "+l).join("
-");if(i.nota)s+="
-  Nota: "+i.nota;return s;}).join("
-");const win=window.open("","_blank","width=420,height=650");win.document.write("<!DOCTYPE html><html><head><title>Ordine "+o.id+"</title><style>body{font-family:monospace;padding:2rem;max-width:400px}h2{border-bottom:2px solid #000;padding-bottom:.5rem}pre{white-space:pre-wrap;line-height:1.8}.tot{border-top:2px solid #000;margin-top:1rem;padding-top:.5rem;font-size:1.1rem;font-weight:700}@media print{button{display:none}}</style></head><body><h2>CaValluzzi — Ordine #"+o.id+"</h2><pre>"+o.customer.name+"
-"+(o.customer.contactType==="email"?"Email: ":"Tel: ")+o.customer.contact+"
-Data: "+o.date+(o.customer.note?"
-Note: "+o.customer.note:"")+"
-
-"+items+"</pre><div class='tot'>TOTALE: EUR "+o.total+"</div><br><button onclick='window.print()'>Stampa</button></body></html>");win.document.close();}
-function doCompleteOrder(id){
+function printOrder(id){
   const o=orders.find(x=>x.id===id);
-  if(o&&o._docId&&window._fbUpdateOrder) window._fbUpdateOrder(o._docId,{status:"completed"});
-  orders=orders.map(o=>o.id===id?{...o,status:"completed"}:o);
-  toast("Ordine segnato come ritirato! 📦");renderAdminTab();
+  if(!o)return;
+  const rows=o.items.map(i=>{
+    const ing=(i.isPoke&&i.detail)?i.detail.split("|").map(l=>"<li>"+l+"</li>").join(""):"";
+    return "<tr><td>"+(i.name)+"</td><td>"+(i.isPoke&&ing?"<ul style='margin:.2rem 0 0 1rem;padding:0'>"+ing+"</ul>":"")+(i.nota?"<em> "+i.nota+"</em>":"")+"</td><td>&euro;"+i.price+"</td></tr>";
+  }).join("");
+  const html=[
+    "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Ordine "+o.id+"</title>",
+    "<style>body{font-family:monospace;padding:2rem;max-width:500px}",
+    "h2{border-bottom:2px solid #000;padding-bottom:.5rem}",
+    "table{width:100%;border-collapse:collapse;margin-top:1rem}",
+    "td{padding:.4rem .6rem;vertical-align:top;border-bottom:1px solid #eee}",
+    ".tot{border-top:2px solid #000;margin-top:1rem;padding-top:.5rem;font-size:1.1rem;font-weight:700}",
+    "@media print{button{display:none}}</style></head><body>",
+    "<h2>CaValluzzi &mdash; Ordine #"+o.id+"</h2>",
+    "<p><strong>"+o.customer.name+"</strong><br>",
+    (o.customer.contactType==="email"?"Email: ":"Tel: ")+o.customer.contact+"<br>",
+    "Data: "+o.date,
+    (o.customer.note?"<br>Note: "+o.customer.note:""),
+    "</p>",
+    "<table>"+rows+"</table>",
+    "<div class='tot'>TOTALE: &euro;"+o.total+"</div>",
+    "<br><button onclick='window.print()'>&#128438; Stampa</button>",
+    "</body></html>"
+  ].join("");
+  const win=window.open("","_blank","width=480,height=680");
+  win.document.write(html);
+  win.document.close();
 }
-function doConfirmOrder(id){
-  const o2=orders.find(x=>x.id===id);
-  if(o2&&o2._docId&&window._fbUpdateOrder) window._fbUpdateOrder(o2._docId,{status:"confirmed"});
-  orders=orders.map(o=>o.id===id?{...o,status:"confirmed"}:o);
-  toast("Ordine confermato! ✓");
-  const o=orders.find(x=>x.id===id);
-  const msg=encodeURIComponent("Ciao "+o.customer.name+"! 🎉 Il tuo ordine da CaValluzzi è stato CONFERMATO. Ti aspettiamo in negozio per il ritiro. Grazie!");
-  const num=o.customer.contact.replace(/\D/g,"");
-  window.open("https://wa.me/"+num+"?text="+msg,"_blank");
-  renderAdminTab();
-}
-function openCancelModal(id){
-  cancelOrderId=id;document.getElementById("cancel-msg").value="";
-  const o=orders.find(x=>x.id===id);
-  document.getElementById("cancel-order-info").innerHTML=`<div style="background:rgba(176,26,26,.06);border:1px solid rgba(176,26,26,.15);padding:1rem;margin-bottom:1.5rem"><div class="mono" style="font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--rosso);margin-bottom:.3rem">Ordine #${o.id}</div><div class="serif" style="font-size:1.1rem">${o.customer.name}</div><div class="mono" style="font-size:.6rem;color:var(--dim);margin-top:.2rem">${o.customer.contactType==="email"?"📧":"📱"} ${o.customer.contact}</div></div>`;
-  document.getElementById("cancel-modal-bg").classList.add("open");
-}
-function closeCancelModal(){document.getElementById("cancel-modal-bg").classList.remove("open")}
-function doCancelOrder(){
-  const msg=document.getElementById("cancel-msg").value.trim()||"Ordine annullato dall'esercente.";
-  const o=orders.find(x=>x.id===cancelOrderId);
-  const oc=orders.find(x=>x.id===cancelOrderId);
-  if(oc&&oc._docId&&window._fbUpdateOrder) window._fbUpdateOrder(oc._docId,{status:"cancelled",cancelMessage:msg});
-  orders=orders.map(x=>x.id===cancelOrderId?{...x,status:"cancelled",cancelMessage:msg}:x);
-  closeCancelModal();
-  const waMsg=encodeURIComponent("Ciao "+o.customer.name+", siamo spiacenti 😔 Il tuo ordine da CaValluzzi è stato annullato. Motivo: "+msg+" Per info chiama lo 080 597 3576.");
-  const num=o.customer.contact.replace(/\D/g,"");
-  window.open("https://wa.me/"+num+"?text="+waMsg,"_blank");
-  renderAdminTab();
-}
-function showCancelPanel(){
-  document.getElementById("cp-type").textContent=(cpType==="email"?"📧 Email":"📱 SMS")+" — messaggio da inviare";
-  document.getElementById("cp-contact").innerHTML="A: <strong>"+cpContact+"</strong>";
-  document.getElementById("cp-msg").textContent='"'+cpMsg+'"';
-  const p=document.getElementById("cancel-panel");p.classList.add("show");
-  setTimeout(()=>p.classList.remove("show"),12000);
-}
-function closeCancelPanel(){document.getElementById("cancel-panel").classList.remove("show")}
-function copyCancel(){navigator.clipboard.writeText(cpMsg).then(()=>toast("Copiato!"))}
-
-function renderSettings(el){
-  el.innerHTML=`<div class="admin-title">Impostazioni sito</div><div class="admin-sub">— modifica testi, prezzi e info negozio —</div><div class="settings-grid">
-  <div class="settings-card"><div class="settings-section-title">Info Negozio</div>${sinp("Indirizzo","address",ui.address)}${sinp("Telefono","phone",ui.phone)}${sinp("Orari","hours",ui.hours,true)}</div>
-  <div class="settings-card"><div class="settings-section-title">Prezzi</div>${sinp("Prezzo vaschetta sushi (€)","sushiPrice",ui.sushiPrice,"number")}${sinp("Prezzo poke bowl (€)","pokePrice",ui.pokePrice,"number")}</div>
-  <div class="settings-card" style="grid-column:1/-1">
-    <div class="settings-section-title">🍱 Disponibilità Sushi — Prossimo Ritiro</div>
-    <p style="font-size:.9rem;color:var(--dim);margin-bottom:1.5rem">Imposta quante vaschette vuoi mettere in vendita per il prossimo martedì o venerdì. Il contatore si azzera automaticamente ad ogni giorno di ritiro.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem">
-      <div>
-        <label class="si-label">🔴 Sushi Crudo (Tartare) — max vaschette</label>
-        <input class="si-input" id="si-maxCrudo" type="number" min="0" max="100" value="${ui.maxCrudo}">
-        <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--rosso);letter-spacing:.1em">Vendute questo periodo: <strong>${(()=>{const k="cvz_sushi_crudo_"+getPeriodoKey();return localStorage.getItem(k)||"0";})()} / ${ui.maxCrudo}</strong></div>
-        <button onclick="resetSushi('crudo')" style="margin-top:.8rem;background:none;border:1px solid rgba(176,26,26,.3);color:var(--rosso);padding:.4rem .9rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer">↺ Azzera contatore</button>
-      </div>
-      <div>
-        <label class="si-label">🟡 Sushi Cotto (Pulled Chicken) — max vaschette</label>
-        <input class="si-input" id="si-maxCotto" type="number" min="0" max="100" value="${ui.maxCotto}">
-        <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--rosso);letter-spacing:.1em">Vendute questo periodo: <strong>${(()=>{const k="cvz_sushi_cotto_"+getPeriodoKey();return localStorage.getItem(k)||"0";})()} / ${ui.maxCotto}</strong></div>
-        <button onclick="resetSushi('cotto')" style="margin-top:.8rem;background:none;border:1px solid rgba(176,26,26,.3);color:var(--rosso);padding:.4rem .9rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer">↺ Azzera contatore</button>
-      </div>
-    </div>
-  </div>
-  <div class="settings-card" style="grid-column:1/-1">
-    <div class="settings-section-title">🥣 Ingredienti Poke — Attiva / Disattiva</div>
-    <p style="font-size:.9rem;color:var(--dim);margin-bottom:1.5rem">Gli ingredienti disattivati non appariranno ai clienti nella costruzione della bowl.</p>
-    ${[
-      ["Base",P_BASE],
-      ["Proteina",P_PROT],
-      ["Condimenti",P_COND],
-      ["Frutta Fresca",P_FRF],
-      ["Frutta Secca",P_FRS],
-      ["Salse",P_SAUCE],
-      ["Semi",P_SEMI]
-    ].map(([cat,items])=>`
-      <div style="margin-bottom:1.5rem">
-        <div style="font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:.6rem">${cat}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:.5rem">
-          ${items.map(v=>{
-            const dis=(ui.disabledIngredients||[]).includes(v);
-            return`<button onclick="toggleIngredient('${v.replace(/'/g,"\\'")}',this)" data-item="${v.replace(/"/g,'&quot;')}" style="padding:.4rem .9rem;font-family:'Cormorant Garamond',serif;font-size:.95rem;cursor:pointer;border:1px solid ${dis?"rgba(176,26,26,.4)":"rgba(42,102,68,.4)"};background:${dis?"rgba(176,26,26,.08)":"rgba(42,102,68,.08)"};color:${dis?"var(--rosso)":"#2a7a4a"}">${dis?"❌":"✓"} ${v}</button>`;
-          }).join("")}
-        </div>
-      </div>
-    `).join("")}
-  </div>
-  </div><button class="btn-save" onclick="saveSettings()">💾 Salva impostazioni</button>`;
-}
-function sinp(label,key,val,type){
-  const isTA=type===true;
-  return`<label class="si-label">${label}</label>`+(isTA?`<textarea class="si-input" id="si-${key}" rows="2">${val||""}</textarea>`:`<input class="si-input" id="si-${key}" type="${type||'text'}" value="${val??""}">`);
-}
-function saveSettings(){
-  ["address","phone","hours"].forEach(k=>{const el=document.getElementById("si-"+k);if(el)ui[k]=el.value;});
-  ["sushiPrice","pokePrice","maxCrudo","maxCotto"].forEach(k=>{const el=document.getElementById("si-"+k);if(el)ui[k]=+el.value;});
-  saveUI();
-  document.getElementById("sushi-price-disp").textContent="€"+ui.sushiPrice;
-  renderSushi();
-  toast("Impostazioni salvate! ✓");
-}
-function toggleIngredient(v,btn){
-  if(!ui.disabledIngredients)ui.disabledIngredients=[];
-  if(ui.disabledIngredients.includes(v)){
-    ui.disabledIngredients=ui.disabledIngredients.filter(x=>x!==v);
-    btn.style.border="1px solid rgba(42,102,68,.4)";
-    btn.style.background="rgba(42,102,68,.08)";
-    btn.style.color="#2a7a4a";
-    btn.textContent="✓ "+v;
-  }else{
-    ui.disabledIngredients.push(v);
-    btn.style.border="1px solid rgba(176,26,26,.4)";
-    btn.style.background="rgba(176,26,26,.08)";
-    btn.style.color="var(--rosso)";
-    btn.textContent="❌ "+v;
-  }
-  saveUI();
-  renderPoke();
-}
-function resetSushi(type){
-  if(!confirm("Azzeri il contatore delle vendite per il sushi "+type+"?"))return;
-  const key="cvz_sushi_"+type+"_"+getPeriodoKey();
-  localStorage.removeItem(key);
-  renderSettings(document.getElementById("admin-main"));
-  renderSushi();
-  toast("Contatore azzerato! ✓");
-}
-
-function renderAccount(el){
-  el.innerHTML=`<div class="admin-title">Account Admin</div><div class="admin-sub">— credenziali di accesso —</div><div style="background:rgba(176,26,26,.06);border:1px solid rgba(176,26,26,.2);padding:1.5rem;max-width:420px"><div class="mono" style="font-size:.58rem;letter-spacing:.15em;color:var(--dim);margin-bottom:.3rem">UTENTE</div><div class="serif" style="font-size:1.3rem;margin-bottom:1rem">CaValluzzi</div><div class="mono" style="font-size:.58rem;letter-spacing:.15em;color:var(--dim);margin-bottom:.3rem">PASSWORD</div><div class="serif" style="font-size:1.3rem;margin-bottom:1rem">Marzo26</div><div class="mono" style="font-size:.52rem;letter-spacing:.12em;color:rgba(176,26,26,.6)">Per modificare le credenziali contatta lo sviluppatore.</div></div>`;
-}
-
-if(localStorage.getItem("cvz_session")==="1"){
-  showView("admin");renderAdminTab();
-}else{
-  showView("site");
-}
-renderSushi();
-renderPoke();
 </script>
 </body>
 </html>
