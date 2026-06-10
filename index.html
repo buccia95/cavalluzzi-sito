@@ -127,6 +127,8 @@ footer .copy{font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12
 .pay-box strong{color:#2a7a4a;font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.3rem}
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--rosso);color:#fff;padding:.8rem 2rem;font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;z-index:900;box-shadow:0 4px 20px rgba(176,26,26,.4);pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .3s;display:none}
 .toast.show{display:block;opacity:1}
+@keyframes newOrderPulse{0%{box-shadow:0 0 0 0 rgba(176,26,26,.7)}70%{box-shadow:0 0 0 18px rgba(176,26,26,0)}100%{box-shadow:0 0 0 0 rgba(176,26,26,0)}}
+.new-order-badge{position:fixed;top:1.2rem;right:1.2rem;background:var(--rosso);color:#fff;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:.7rem 1.4rem;z-index:999;animation:newOrderPulse 1.2s infinite;cursor:pointer;display:none}
 .admin-wrap{min-height:100vh;display:grid;grid-template-columns:220px 1fr}
 .admin-side{background-color:var(--nero);border-right:2px solid var(--rosso);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:.4rem}
 .admin-logo{font-family:'Playfair Display',serif;font-size:1.3rem;color:#f08080;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid rgba(176,26,26,.3)}
@@ -341,6 +343,7 @@ footer .copy{font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.12
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="new-order-badge" id="new-order-badge" onclick="dismissNewOrder()">🔔 NUOVO ORDINE!</div>
 
 <div id="login-view" style="display:none" class="mw">
   <div class="login-wrap">
@@ -445,9 +448,13 @@ const UI_DEF={
 let ui={...UI_DEF,...loadUI()};
 let orders=[];
 window._orders=[];
-window._onOrdersUpdate=function(){ orders=window._orders||[]; if(document.getElementById("admin-view").style.display!=="none"&&adminTab==="orders") renderAdminTab(); };
+window._onOrdersUpdate=function(){const prev=orders.length;orders=window._orders||[];const isAdmin=document.getElementById("admin-view").style.display!=="none";if(lastOrderCount>=0&&orders.length>prev){showNewOrderNotification();}lastOrderCount=orders.length;if(isAdmin&&adminTab==="orders")renderAdminTab();};
 let cart=[],cartId=1,contactMode="email",cancelOrderId=null;
 let cpMsg="",cpContact="",cpType="",adminTab="orders",orderFilter="all";
+let lastOrderCount=-1;
+function playNewOrderSound(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[523,659,784].forEach((freq,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=freq;o.type="sine";g.gain.setValueAtTime(0,ctx.currentTime+i*0.15);g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+i*0.15+0.05);g.gain.linearRampToValueAtTime(0,ctx.currentTime+i*0.15+0.25);o.start(ctx.currentTime+i*0.15);o.stop(ctx.currentTime+i*0.15+0.3);});}catch(e){}}
+function showNewOrderNotification(){const b=document.getElementById("new-order-badge");if(b)b.style.display="block";playNewOrderSound();document.title="🔔 NUOVO ORDINE! — CaValluzzi";}
+function dismissNewOrder(){const b=document.getElementById("new-order-badge");if(b)b.style.display="none";document.title="CaValluzzi Admin";}
 
 const SUSHI=[
   {id:1,type:"crudo",name:"Tartare di Cavallo",desc:"Sushi crudo con tartare di carne di cavallo fresca, preparata al momento. 15 pezzi per vaschetta.",maxQty:10},
@@ -679,6 +686,7 @@ function confirmOrder(){
   const phone=document.getElementById("cust-phone").value.trim();
   const note=document.getElementById("cust-note").value.trim();
   // Valida nome E cognome (almeno due parole)
+  if(ordersBlocked){toast("⛔ Ordini temporaneamente chiusi. Riprova più tardi.");return;}
   if(!name||name.split(/\s+/).filter(w=>w.length>1).length<2){toast("Inserisci nome e cognome!");return}
   // Valida numero: solo cifre, lunghezza 9-13, non tutti uguali
   const digits=phone.replace(/\D/g,"");
@@ -795,6 +803,7 @@ function renderOrders(el){
       <div class="order-foot">
         <div class="order-total">Totale: €${o.total}</div>
         ${!isHid?`<div class="order-actions">
+          <button onclick="printOrder('${o.id}')" style="background:none;border:1px solid rgba(26,26,28,.25);color:var(--testo);padding:.45rem 1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer">🖨 Stampa</button>
           ${o.status!=="confirmed"?`<button class="btn-ok" onclick="doConfirmOrder('${o.id}')">✓ Conferma</button>`:""}
           ${o.status==="confirmed"?`<button onclick="doCompleteOrder('${o.id}')" style="background:none;border:1px solid rgba(42,102,68,.6);color:#2a7a4a;padding:.45rem 1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;font-weight:700">📦 Segna come ritirato</button>`:""}
           ${o.status!=="cancelled"&&o.status!=="completed"?`<button class="btn-ko" onclick="openCancelModal('${o.id}')">✗ Annulla</button>`:""}
@@ -815,7 +824,7 @@ function renderOrders(el){
     <div class="admin-title">Ordini ricevuti</div>
     <div class="admin-sub">— gestisci e conferma le prenotazioni —</div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem">
-      <div class="filter-tabs" style="margin-bottom:0">${filt.map((f,i)=>`<button class="filter-tab${orderFilter===f?" sel":""}" onclick="setOrderFilter('${f}')">${filtL[i]}</button>`).join("")}</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap"><div class="filter-tabs" style="margin-bottom:0">${filt.map((f,i)=>`<button class="filter-tab${orderFilter===f?" sel":""}" onclick="setOrderFilter('${f}')">${filtL[i]}</button>`).join("")}</div><button onclick="toggleOrdersBlock()" style="background:${ordersBlocked?"rgba(176,26,26,.12)":"rgba(42,102,68,.08)"};border:1px solid ${ordersBlocked?"rgba(176,26,26,.5)":"rgba(42,102,68,.4)"};color:${ordersBlocked?"var(--rosso)":"#2a7a4a"};padding:.45rem 1.1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;font-weight:700">${ordersBlocked?"🔴 Ordini BLOCCATI":"🟢 Ordini aperti"}</button></div>
       ${visible.length>0?`<button onclick="clearAllCompleted()" style="background:none;border:1px solid rgba(176,26,26,.25);color:rgba(176,26,26,.6);padding:.45rem 1rem;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer" title="Nascondi tutti i ritirati e annullati">🗂 Archivia evasi</button>`:""}
     </div>
     ${filtered.length===0
@@ -861,6 +870,16 @@ function deleteOrder(id){
   renderAdminTab();
 }
 function setOrderFilter(f){orderFilter=f;renderAdminTab()}
+function printOrder(id){const o=orders.find(x=>x.id===id);if(!o)return;const items=o.items.map(i=>{let s="- "+i.name+" (EUR "+i.price+")";if(i.isPoke&&i.detail)s+="
+"+i.detail.split("|").map(l=>"  > "+l).join("
+");if(i.nota)s+="
+  Nota: "+i.nota;return s;}).join("
+");const win=window.open("","_blank","width=420,height=650");win.document.write("<!DOCTYPE html><html><head><title>Ordine "+o.id+"</title><style>body{font-family:monospace;padding:2rem;max-width:400px}h2{border-bottom:2px solid #000;padding-bottom:.5rem}pre{white-space:pre-wrap;line-height:1.8}.tot{border-top:2px solid #000;margin-top:1rem;padding-top:.5rem;font-size:1.1rem;font-weight:700}@media print{button{display:none}}</style></head><body><h2>CaValluzzi — Ordine #"+o.id+"</h2><pre>"+o.customer.name+"
+"+(o.customer.contactType==="email"?"Email: ":"Tel: ")+o.customer.contact+"
+Data: "+o.date+(o.customer.note?"
+Note: "+o.customer.note:"")+"
+
+"+items+"</pre><div class='tot'>TOTALE: EUR "+o.total+"</div><br><button onclick='window.print()'>Stampa</button></body></html>");win.document.close();}
 function doCompleteOrder(id){
   const o=orders.find(x=>x.id===id);
   if(o&&o._docId&&window._fbUpdateOrder) window._fbUpdateOrder(o._docId,{status:"completed"});
